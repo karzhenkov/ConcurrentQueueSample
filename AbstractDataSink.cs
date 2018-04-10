@@ -9,7 +9,6 @@ namespace Sample
     {
         private ConcurrentQueue<Item> _queue = new ConcurrentQueue<Item>();
         private int _count;
-        private TaskCompletionSource<object> _tcs;
         private Task _task = Task.FromResult<object>(null);
 
         protected abstract Task ProcessItem(Item item);
@@ -27,17 +26,16 @@ namespace Sample
         public void Enqueue(Item item)
         {
             _queue.Enqueue(item);
-            if (Interlocked.Increment(ref _count) == 1) Task.Run(async () =>
-            {
-                await _task;
-                _tcs = new TaskCompletionSource<object>(null);
-                _task = _tcs.Task;
-                ProcessQueue();
-            });
+            if (Interlocked.Increment(ref _count) == 1) Task.Run((Action)ProcessQueue);
         }
 
         private async void ProcessQueue()
         {
+            await _task;
+
+            var tcs = new TaskCompletionSource<object>();
+            _task = tcs.Task;
+
             await OnProcessQueueEnter();
 
             do
@@ -48,7 +46,7 @@ namespace Sample
             } while (Interlocked.Decrement(ref _count) != 0);
 
             await OnProcessQueueExit();
-            _tcs.SetResult(null);
+            tcs.SetResult(null);
         }
     }
 }
