@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Sample
@@ -7,7 +8,7 @@ namespace Sample
     {
         protected override async Task ProcessItem(string item)
         {
-            await Task.Delay(TimeSpan.FromMilliseconds(150));
+            Thread.Sleep(TimeSpan.FromMilliseconds(500));
             await Console.Out.WriteLineAsync(item);
         }
     }
@@ -29,7 +30,7 @@ namespace Sample
         static void Main(string[] args)
         {
             var sink = new DataSink();
-            for (int i = 0; i < 5; i++) GenerateItemsAsync(i, sink);
+            for (int i = 0; i < 3; i++) GenerateItemsAsync(i, sink);
             Console.ReadLine();
         }
     }
