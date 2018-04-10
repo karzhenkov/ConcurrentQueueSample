@@ -46,9 +46,11 @@ namespace Sample
 
         static void Main(string[] args)
         {
-            var sink = new DataSink("sample.txt");
-            for (int i = 0; i < 3; i++) GenerateItemsAsync(i, sink);
-            Console.ReadLine();
+            using (var sink = new DataSink("sample.txt"))
+            {
+                for (int i = 0; i < 3; i++) GenerateItemsAsync(i, sink);
+                Console.ReadLine();
+            }
         }
     }
 }
