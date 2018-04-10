@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,7 +15,7 @@ namespace Sample
         public void Enqueue(Item item)
         {
             _queue.Enqueue(item);
-            if (Interlocked.Increment(ref _count) == 1) ProcessQueue();
+            if (Interlocked.Increment(ref _count) == 1) Task.Run((Action)ProcessQueue);
         }
 
         private async void ProcessQueue()
