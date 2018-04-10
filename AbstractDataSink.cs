@@ -12,6 +12,16 @@ namespace Sample
 
         protected abstract Task ProcessItem(Item item);
 
+        protected virtual Task OnProcessQueueEnter()
+        {
+            return Task.FromResult<object>(null);
+        }
+
+        protected virtual Task OnProcessQueueExit()
+        {
+            return Task.FromResult<object>(null);
+        }
+
         public void Enqueue(Item item)
         {
             _queue.Enqueue(item);
@@ -20,12 +30,16 @@ namespace Sample
 
         private async void ProcessQueue()
         {
+            await OnProcessQueueEnter();
+
             do
             {
                 Item item;
                 _queue.TryDequeue(out item);
                 await ProcessItem(item);
             } while (Interlocked.Decrement(ref _count) != 0);
+
+            await OnProcessQueueExit();
         }
     }
 }
