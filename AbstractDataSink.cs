@@ -9,18 +9,18 @@ namespace Sample
     {
         private ConcurrentQueue<Item> _queue = new ConcurrentQueue<Item>();
         private int _count;
-        private Task _task = Task.FromResult<object>(null);
+        private Task _task = Task.CompletedTask;
 
         protected abstract Task ProcessItem(Item item);
 
         protected virtual Task OnProcessQueueEnter()
         {
-            return Task.FromResult<object>(null);
+            return Task.CompletedTask;
         }
 
         protected virtual Task OnProcessQueueExit()
         {
-            return Task.FromResult<object>(null);
+            return Task.CompletedTask;
         }
 
         public void Enqueue(Item item)
