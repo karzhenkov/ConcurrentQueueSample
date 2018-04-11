@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Threading;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Sample
 {
     public abstract class AbstractDataSink<Item>
     {
-        private ConcurrentQueue<Item> _queue = new ConcurrentQueue<Item>();
-        private int _count;
+        private Queue<Item> _queue = new Queue<Item>();
         private Task _task = Task.CompletedTask;
 
         protected abstract Task ProcessItem(Item item);
@@ -25,8 +23,13 @@ namespace Sample
 
         public void Enqueue(Item item)
         {
-            _queue.Enqueue(item);
-            if (Interlocked.Increment(ref _count) == 1) ProcessQueue();
+            lock (_queue)
+            {
+                _queue.Enqueue(item);
+                if (_queue.Count != 1) return;
+            }
+
+            ProcessQueue();
         }
 
         private async void ProcessQueue()
@@ -39,12 +42,20 @@ namespace Sample
 
             await OnProcessQueueEnter();
 
-            do
+            while (true)
             {
                 Item item;
-                _queue.TryDequeue(out item);
+                int count;
+
+                lock (_queue)
+                {
+                    item = _queue.Dequeue();
+                    count = _queue.Count;
+                }
+
                 await ProcessItem(item);
-            } while (Interlocked.Decrement(ref _count) != 0);
+                if (count == 0) break;
+            }
 
             await OnProcessQueueExit();
             tcs.SetResult(null);
