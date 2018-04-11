@@ -26,12 +26,13 @@ namespace Sample
         public void Enqueue(Item item)
         {
             _queue.Enqueue(item);
-            if (Interlocked.Increment(ref _count) == 1) Task.Run((Action)ProcessQueue);
+            if (Interlocked.Increment(ref _count) == 1) ProcessQueue();
         }
 
         private async void ProcessQueue()
         {
             await _task;
+            await Task.Yield();
 
             var tcs = new TaskCompletionSource<object>();
             _task = tcs.Task;
