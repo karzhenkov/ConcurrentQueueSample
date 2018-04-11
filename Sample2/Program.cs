@@ -26,7 +26,12 @@ namespace Sample
 
         public void Dispose()
         {
-            _out.Dispose();
+            if (_out != null)
+            {
+                Drain();
+                _out.Dispose();
+                _out = null;
+            }
         }
     }
 
@@ -40,7 +45,7 @@ namespace Sample
             {
                 int number = random.Next(1000);
                 await Task.Delay(TimeSpan.FromMilliseconds(number));
-                sink.Enqueue($"{id}: {number}");
+                if (!sink.Enqueue($"{id}: {number}")) break;
             }
         }
 
