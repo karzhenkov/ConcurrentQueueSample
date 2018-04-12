@@ -68,6 +68,8 @@ namespace Sample
             var tcs = new TaskCompletionSource<object>();
             _task = tcs.Task;
 
+            TaskCompletionSource<object> tcsDrain;
+
             await OnProcessQueueEnter();
 
             while (true)
@@ -77,6 +79,7 @@ namespace Sample
 
                 lock (_queue)
                 {
+                    tcsDrain = _tcsDrain;
                     item = _queue.Dequeue();
                     count = _queue.Count;
                 }
@@ -87,7 +90,7 @@ namespace Sample
 
             await OnProcessQueueExit();
             tcs.SetResult(null);
-            _tcsDrain?.SetResult(null);
+            tcsDrain?.SetResult(null);
         }
     }
 }
