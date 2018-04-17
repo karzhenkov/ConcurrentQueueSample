@@ -6,10 +6,22 @@ namespace Sample
 {
     public abstract class AbstractDataSink<Item>
     {
+        [Flags]
+        private enum Flags
+        {
+            Drain = 1,
+            Break = 2
+        }
+
         private Queue<Item> _queue = new Queue<Item>();
-        private Task _task = Task.CompletedTask;
-        private bool _disabled;
-        private TaskCompletionSource<object> _tcsDrain;
+        private Flags _flags;
+        private TaskCompletionSource<object> _tcs = new TaskCompletionSource<object>();
+        private Task _task;
+
+        public AbstractDataSink()
+        {
+            _task = ProcessQueueAsync();
+        }
 
         protected abstract Task ProcessItem(Item item);
 
@@ -27,32 +39,35 @@ namespace Sample
         {
             lock (_queue)
             {
-                if (_disabled) return false;
+                if (_flags != 0) return false;
                 _queue.Enqueue(item);
-                if (_queue.Count != 1) return true;
+                _tcs.TrySetResult(null);
+                return true;
             }
-
-            ProcessQueue();
-            return true;
         }
 
-        public Task DrainAsync()
+        public async Task DrainAsync()
         {
-            lock (_queue)
+            lock (this)
             {
-                _disabled = true;
-                if (_queue.Count == 0) return _task;
-
-                _tcsDrain = new TaskCompletionSource<object>();
-                return _tcsDrain.Task;
+                _flags |= Flags.Drain;
+                _tcs.TrySetResult(null);
             }
+
+            await _task;
         }
 
-        public void Drain()
+        public void Break()
         {
+            lock (this)
+            {
+                _flags |= Flags.Break;
+                _tcs.TrySetResult(null);
+            }
+
             try
             {
-                DrainAsync().Wait();
+                Task.WhenAll(_task).Wait();
             }
             catch (AggregateException e)
             {
@@ -60,37 +75,53 @@ namespace Sample
             }
         }
 
-        private async void ProcessQueue()
+        private async Task ProcessQueueAsync()
         {
-            await _task;
-            await Task.Yield();
-
-            var tcs = new TaskCompletionSource<object>();
-            _task = tcs.Task;
-
-            TaskCompletionSource<object> tcsDrain;
-
-            await OnProcessQueueEnter();
-
             while (true)
             {
-                Item item;
-                int count;
+                await _tcs.Task.ConfigureAwait(false);
+                await Task.Yield();
 
-                lock (_queue)
+                bool first = true;
+
+                while (true)
                 {
-                    tcsDrain = _tcsDrain;
-                    item = _queue.Dequeue();
-                    count = _queue.Count;
+                    bool drainFlag;
+                    bool hasItem = false;
+                    var item = default(Item);
+
+                    lock (_queue)
+                    {
+                        if (_flags.HasFlag(Flags.Break)) return;
+                        drainFlag = _flags != 0;
+
+                        if (_queue.Count == 0)
+                        {
+                            _tcs = new TaskCompletionSource<object>();
+                        }
+                        else
+                        {
+                            hasItem = true;
+                            item = _queue.Dequeue();
+                        }
+                    }
+
+                    if (!hasItem)
+                    {
+                        if (!first) await OnProcessQueueExit();
+                        if (drainFlag) return;
+                        break;
+                    }
+
+                    if (first)
+                    {
+                        first = false;
+                        await OnProcessQueueEnter();
+                    }
+
+                    await ProcessItem(item);
                 }
-
-                await ProcessItem(item);
-                if (count == 0) break;
             }
-
-            await OnProcessQueueExit();
-            tcs.SetResult(null);
-            tcsDrain?.SetResult(null);
         }
     }
 }

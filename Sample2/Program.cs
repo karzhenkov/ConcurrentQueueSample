@@ -28,7 +28,7 @@ namespace Sample
         {
             if (_out != null)
             {
-                Drain();
+                Break();
                 _out.Dispose();
                 _out = null;
             }
@@ -55,6 +55,7 @@ namespace Sample
             {
                 for (int i = 0; i < 3; i++) GenerateItemsAsync(i, sink);
                 Console.ReadLine();
+                sink.DrainAsync().Wait();
             }
         }
     }
