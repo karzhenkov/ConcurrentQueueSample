@@ -19,11 +19,6 @@ namespace Sample
             await _out.WriteLineAsync(item);
         }
 
-        protected override Task OnProcessQueueExit()
-        {
-            return _out.FlushAsync();
-        }
-
         public void Dispose()
         {
             if (_out != null)

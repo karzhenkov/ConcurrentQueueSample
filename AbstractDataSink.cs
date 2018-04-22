@@ -25,16 +25,6 @@ namespace Sample
 
         protected abstract Task ProcessItem(Item item);
 
-        protected virtual Task OnProcessQueueEnter()
-        {
-            return Task.CompletedTask;
-        }
-
-        protected virtual Task OnProcessQueueExit()
-        {
-            return Task.CompletedTask;
-        }
-
         public bool Enqueue(Item item)
         {
             lock (_queue)
@@ -82,41 +72,22 @@ namespace Sample
                 await _tcs.Task.ConfigureAwait(false);
                 await Task.Yield();
 
-                bool first = true;
-
                 while (true)
                 {
-                    bool drainFlag;
-                    bool hasItem = false;
-                    var item = default(Item);
+                    Item item;
 
                     lock (_queue)
                     {
                         if (_flags.HasFlag(Flags.Break)) return;
-                        drainFlag = _flags != 0;
 
                         if (_queue.Count == 0)
                         {
+                            if (_flags != 0) return;
                             _tcs = new TaskCompletionSource<object>();
+                            break;
                         }
-                        else
-                        {
-                            hasItem = true;
-                            item = _queue.Dequeue();
-                        }
-                    }
 
-                    if (!hasItem)
-                    {
-                        if (!first) await OnProcessQueueExit();
-                        if (drainFlag) return;
-                        break;
-                    }
-
-                    if (first)
-                    {
-                        first = false;
-                        await OnProcessQueueEnter();
+                        item = _queue.Dequeue();
                     }
 
                     await ProcessItem(item);
