@@ -6,7 +6,7 @@ namespace Sample
 {
     public abstract class AbstractDataSink<Item>
     {
-        // Режимы завершения цикла обработки элементов
+        // Режимы завершения цикла обработки элементов.
         private enum StopMode
         {
             None,  // не завершать цикл
@@ -24,8 +24,10 @@ namespace Sample
             _task = ProcessQueueAsync();
         }
 
+        // Обработка элемента данных.
         protected abstract Task ProcessItem(Item item);
 
+        // Добавление элемента в очередь.
         public bool Enqueue(Item item)
         {
             lock (_queue)
@@ -37,6 +39,8 @@ namespace Sample
             }
         }
 
+        // Запрет добавления элементов
+        // и ожидание завершения обработки содержимого очереди.
         public async Task DrainAsync()
         {
             lock (this)
@@ -48,6 +52,9 @@ namespace Sample
             await _task;
         }
 
+        // Запрет добавления элементов,
+        // и прерывание цикла обработки очереди
+        // после завершения текущих вызовов ProcessItem и OnSuspend.
         public void Break()
         {
             lock (this)
@@ -66,6 +73,7 @@ namespace Sample
             }
         }
 
+        // Цикл обработки элементов.
         private async Task ProcessQueueAsync()
         {
             while (true)
