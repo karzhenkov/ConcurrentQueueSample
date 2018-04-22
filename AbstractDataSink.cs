@@ -6,15 +6,16 @@ namespace Sample
 {
     public abstract class AbstractDataSink<Item>
     {
-        [Flags]
-        private enum Flags
+        // Режимы завершения цикла обработки элементов
+        private enum StopMode
         {
-            Drain = 1,
-            Break = 2
+            None,  // не завершать цикл
+            Drain, // обработать имеющиеся элементы
+            Break  // завершить без обработки имеющихся элементов
         }
 
         private Queue<Item> _queue = new Queue<Item>();
-        private Flags _flags;
+        private StopMode _stopMode = StopMode.None;
         private TaskCompletionSource<object> _tcs = new TaskCompletionSource<object>();
         private Task _task;
 
@@ -29,7 +30,7 @@ namespace Sample
         {
             lock (_queue)
             {
-                if (_flags != 0) return false;
+                if (_stopMode != StopMode.None) return false;
                 _queue.Enqueue(item);
                 _tcs.TrySetResult(null);
                 return true;
@@ -40,7 +41,7 @@ namespace Sample
         {
             lock (this)
             {
-                _flags |= Flags.Drain;
+                if (_stopMode == StopMode.None) _stopMode = StopMode.Drain;
                 _tcs.TrySetResult(null);
             }
 
@@ -51,7 +52,7 @@ namespace Sample
         {
             lock (this)
             {
-                _flags |= Flags.Break;
+                _stopMode = StopMode.Break;
                 _tcs.TrySetResult(null);
             }
 
@@ -78,11 +79,11 @@ namespace Sample
 
                     lock (_queue)
                     {
-                        if (_flags.HasFlag(Flags.Break)) return;
+                        if (_stopMode == StopMode.Break) return;
 
                         if (_queue.Count == 0)
                         {
-                            if (_flags != 0) return;
+                            if (_stopMode == StopMode.Drain) return;
                             _tcs = new TaskCompletionSource<object>();
                             break;
                         }
