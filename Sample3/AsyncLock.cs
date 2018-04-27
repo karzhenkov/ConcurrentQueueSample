@@ -10,27 +10,26 @@ namespace Sample
 
         private class Pretender : IDisposable
         {
-            private TaskCompletionSource<object> _tcs;
-            private Task _task;
-            private int? _disposingThreadId;
+            private TaskCompletionSource<int> _tcs;
+            private Task<int> _task;
 
             private Pretender() { }
 
             public static Pretender CreateCompleted()
             {
-                return new Pretender { _task = Task.CompletedTask };
+                return new Pretender { _task = Task.FromResult(0) };
             }
 
             public static Pretender Create()
             {
-                var tcs = new TaskCompletionSource<object>(null);
+                var tcs = new TaskCompletionSource<int>();
                 return new Pretender { _tcs = tcs, _task = tcs.Task };
             }
 
             public async Task WaitAsync()
             {
-                await _task;
-                if (_disposingThreadId != Thread.CurrentThread.ManagedThreadId) return;
+                var disposingThreadId = await _task;
+                if (disposingThreadId != Thread.CurrentThread.ManagedThreadId) return;
                 if (_tcs == null) return;
                 await Task.Yield();
             }
@@ -38,8 +37,7 @@ namespace Sample
             public void Dispose()
             {
                 if (_tcs == null) return;
-                _disposingThreadId = Thread.CurrentThread.ManagedThreadId;
-                _tcs.SetResult(null);
+                _tcs.SetResult(Thread.CurrentThread.ManagedThreadId);
                 _tcs = null;
             }
         }
