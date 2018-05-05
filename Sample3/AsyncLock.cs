@@ -6,47 +6,29 @@ namespace Sample
 {
     class AsyncLock
     {
-        private Pretender _last = Pretender.CreateCompleted();
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
-        private class Pretender : IDisposable
+        private class Releaser : IDisposable
         {
-            private TaskCompletionSource<int> _tcs;
-            private Task<int> _task;
+            private SemaphoreSlim _semaphore;
 
-            private Pretender() { }
-
-            public static Pretender CreateCompleted()
+            public Releaser(SemaphoreSlim semaphore)
             {
-                return new Pretender { _task = Task.FromResult(0) };
-            }
-
-            public static Pretender Create()
-            {
-                var tcs = new TaskCompletionSource<int>();
-                return new Pretender { _tcs = tcs, _task = tcs.Task };
-            }
-
-            public async Task WaitAsync()
-            {
-                var disposingThreadId = await _task;
-                if (disposingThreadId != Thread.CurrentThread.ManagedThreadId) return;
-                if (_tcs == null) return;
-                await Task.Yield();
+                _semaphore = semaphore;
             }
 
             public void Dispose()
             {
-                if (_tcs == null) return;
-                _tcs.SetResult(Thread.CurrentThread.ManagedThreadId);
-                _tcs = null;
+                if (_semaphore == null) return;
+                _semaphore.Release();
+                _semaphore = null;
             }
         }
 
         public async Task<IDisposable> AcquireAsync()
         {
-            var pretender = Pretender.Create();
-            await Interlocked.Exchange(ref _last, pretender).WaitAsync();
-            return pretender;
+            await _semaphore.WaitAsync();
+            return new Releaser(_semaphore);
         }
     }
 }
